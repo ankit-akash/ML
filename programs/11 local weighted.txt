@@ -1,28 +1,48 @@
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn import datasets
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
 
-iris = datasets.load_iris()
-print("Iris Data set loaded...")
-iris_data = iris.data
-iris_labels = iris.target
+def kernel(point, xmat, k):
+    m, n = np.shape(xmat)
+    weights = np.mat(np.eye((m)))  # eye - identity matrix
+    for j in range(m):
+        diff = point - X[j]
+        weights[j, j] = np.exp(diff * diff.T / (-2.0 * k**2))
+    return weights
 
-x_train, x_test, y_train, y_test = train_test_split(iris_data, iris_labels, test_size=0.1)
-print("Dataset is split into training and testing...")
-print("Size of training data and its label", x_train.shape, y_train.shape)
-print("Size of testing data and its label", x_test.shape, y_test.shape)
+def localWeight(point, xmat, ymat, k):
+    wei = kernel(point, xmat, k)
+    W = (X.T * (wei * X)).I * (X.T * (wei * ymat.T))
+    return W
 
-# Prints Label no. and their names
-for i in range(len(iris.target_names)):
-    print("Label", i, "-", str(iris.target_names[i]))
+def localWeightRegression(xmat, ymat, k):
+    m, n = np.shape(xmat)
+    ypred = np.zeros(m)
+    for i in range(m):
+        ypred[i] = xmat[i] * localWeight(xmat[i], xmat, ymat, k)
+    return ypred
 
-classifier = KNeighborsClassifier(n_neighbors=1)
-classifier.fit(x_train, y_train)
-y_pred = classifier.predict(x_test)
+def graphPlot(X, ypred):
+    sortindex = X[:, 1].argsort(0)  # argsort - index of the smallest
+    xsort = X[sortindex][:, 0]
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.scatter(bill, tip, color='green')
+    ax.plot(xsort[:, 1], ypred[sortindex], color='red', linewidth=5)
+    plt.xlabel('Total bill')
+    plt.ylabel('Tip')
+    plt.show()
 
-# Display the results
-print("Results of Classification using K-nn with K=1 ")
-for r in range(0, len(x_test)):
-    print(" Sample:", str(x_test[r]), " Actual-label:", str(y_test[r]), " Predicted-label:", str(y_pred[r]))
+# load data points
+data = pd.read_csv('P10_data10_tips.csv')
+bill = np.array(data.total_bill)  # We use only Bill amount and Tips data
+tip = np.array(data.tip)
+mbill = np.mat(bill)  # .mat will convert nd array is converted into 2D array
+mtip = np.mat(tip)
+m = np.shape(mbill)[1]
+one = np.mat(np.ones(m))
+X = np.hstack((one.T, mbill.T))  # 244 rows, 2 cols
 
-print("Classification Accuracy:", classifier.score(x_test, y_test))
+ypred = localWeightRegression(X, mtip, 2)  # increase k to get smooth curves
+graphPlot(X, ypred)
+
